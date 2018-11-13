@@ -120,7 +120,7 @@ def getCircledRoi(origfile,ofile):
     c = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5))
     gray = cv.morphologyEx(gray, cv.MORPH_OPEN, c)
     circles = cv.HoughCircles(gray, cv.HOUGH_GRADIENT, 1, 10, np.array([]), 100, 30, 10, 35)
-    if len(circles) < 3 :
+    if len(circles) < 1 :
         print('abnormal:ROI area error!')
         return -1
     cs = sorted(circles[0], key=lambda x: (x[1], x[0]))
@@ -170,7 +170,7 @@ def prehandle(img,oname):
     w,h = areaRoi.shape[0:2]
     areaRoi = cv.resize(areaRoi,(1000,int(w*1000/h)))
     #cut off the device header
-    areaRoi = areaRoi[10:1000,:]
+    areaRoi = areaRoi[130:1000,:]
     tmpname = oname.split('_',-1)[0] + '_cuted.png'
     oimg(tmpname,areaRoi)
     ret = getCircledRoi(tmpname, oname)
@@ -432,12 +432,20 @@ def Sprehandle(hmimg,datafile,oname = 'org.png'):
     if ret < 0:
         return ret
     img = rimg(oname)
+    if img is None:
+        print 'the org image is None.', oname
+        return -1
+
     if len(img.shape) > 2:
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 
+    if hmimg is None:
+        print 'the heatmap image is None.'
+        return -1
+
     hmh,hmw = hmimg.shape[0:2]
     h, w = img.shape[0:2]
-    if abs(hmh-h)>2 or abs(hmw-w)>2:
+    if abs(hmh-h)>5 or abs(hmw-w)>5:
         print("the heatmapImg size is error")
         return -1
 
@@ -449,7 +457,8 @@ def Sprehandle(hmimg,datafile,oname = 'org.png'):
     return 0
 
 def getRorate(img, oname):
-    rectName = oname.split('-', -1)[0] + '_Rect.png'
+    name = oname[0 : oname.rfind('-')]
+    rectName = name + '_Rect.png'
     x,y,w,h = getRoiRect(img, rectName)
     print(x,y,w,h)
 
@@ -481,7 +490,7 @@ def getRorate(img, oname):
     degree = angle*180/math.pi
 
     #use PIL
-    igrayfile = oname.split('-', -1)[0] + '.png'
+    igrayfile = name + '.png'
     pil_im = Image.open(os.path.join(odir, igrayfile))
 
     #rotate the angle
@@ -614,16 +623,17 @@ def getLinesArch(hmimg,img,whichone,angle,oname):
     center = np.array((int(W/2), int(H/2)))
     print "img(H,W):",H,W
     # set the line start and end H axis
-    Ths = 50
-    The = H-Ths
+    DiffHW = int(abs(H-W)/2)
+    Ths = DiffHW + 1
+    The = H - DiffHW - 1
 
     rectName = oname.split('_', -1)[0] + '_Rect.png'
     x,y,w,h = getRoiRect(img, rectName)
     print(x,y,w,h)
     Ws = x
     Hs = y
-    We = x+w
-    He = y+h
+    We = x+w-5
+    He = y+h-5
     Hdeep = int(h/3)
     Wc = int(x+w/2)
     print Hs,He,Ws,We,Hdeep,Wc
@@ -738,9 +748,10 @@ def PressLine(hmimg,img,angle,oname):
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     h, w = img.shape[0:2]
     SumH = np.array(np.sum(img, axis=1))
-    points = list()
 
-    for i in range(0, h):
+    points = list()
+    step = 10
+    for i in range(0, h, step):
         # filter the little value points line
         if SumH[i] < 10:
             continue
@@ -759,15 +770,21 @@ def PressLine(hmimg,img,angle,oname):
         Tpoints.append((int(Tmp[0]), int(Tmp[1])))
 
     for k in range(len(Tpoints)):
-        cv.circle(orig, (int(Tpoints[k][0]), int(Tpoints[k][1])), 1, (255, 0, 255), -1)
+        cv.circle(orig, Tpoints[k], 1, (255, 0, 255), -1)
+        if k > 0:
+            cv.line(orig, Tpoints[k-1], Tpoints[k], (255, 0, 255), 1, cv.LINE_AA)
 
     oimg(oname,orig)
     return 0
 
 def SConvPressImg(filename, oname):
-    fo = open(filename, 'r')
-    str = fo.read()
-    fo.close()
+    if filename.find('.txt') >= 0:
+        fo = open(filename, 'r')
+        str = fo.read()
+        fo.close()
+    else:
+        str = filename
+
 
     ## remove space and []
     if len(str)>0:
@@ -797,21 +814,44 @@ def SConvPressImg(filename, oname):
     return 0
 
 def drawBalanceImg(hmimg, BCdata, oname):
+    name = oname.split('.png')[0].split('_', 1)[0]
     orig = hmimg.copy()
-    if len(BCdata) > 0:
-        for i in range(len(BCdata)):
-            cv.circle(orig, (int(BCdata[i][0]), int(BCdata[i][1])), 2, (50, 50, 50), -1)
+    points = list()
 
-    oimg(oname, orig)
+    if BCdata.find('.txt') >= 0:
+        fo = open(BCdata, 'r')
+        str = fo.read()
+        fo.close()
+    else:
+        str = BCdata
+
+    print 'Balance position:', str
+    if len(str)>0:
+        str = str.strip('')
+        str = str.strip('[')
+        str = str.strip(']')
+
+    Temp = str.split(';')
+    for i in range(len(Temp)):
+        Tp = Temp[i].split(',')
+        Tpn = [int(x) for x in Tp]
+        points.append(Tpn)
+
+    if len(points) > 0:
+        for i in range(len(points)):
+            cv.circle(orig, (int(8*points[i][0]), int(8*points[i][1])), 2, (50, 50, 50), -1)
+
+    oimg(name+'_balance.png', orig)
     return 0
 
-def getArch(hmimg, dataname, oname):
-    name = oname.split('_', 1)[0]
-    print oname, name
+def getfootReportInfo(hmImg, dataname, oname):
+    name = oname.split('.png')[0].split('_', 1)[0]
+    print 'oname', oname
+    print name
 
-    ret = Sprehandle(hmimg, dataname, oname)
+    ret = Sprehandle(hmImg, dataname, name+'_org.png')
     if ret < 0:
-        return -1
+        return ret
 
     ## Left foot
     hmlImg = rimg(name + "_left.png")
@@ -823,6 +863,8 @@ def getArch(hmimg, dataname, oname):
     LArch = getLinesArch(hmlImg, img, 'L', La, oname=name+ "_leftfoot-arch.png")
     print 'Left Arch:', LArch
 
+    PressLine(hmlImg, img, La, name+ "_leftfoot-pressline.png")
+
     ## Right foot
     hmrImg = rimg(name + "_right.png")
     img = rimg(name + "_rightgray.png")
@@ -833,28 +875,6 @@ def getArch(hmimg, dataname, oname):
     RArch = getLinesArch(hmrImg, img, 'R', Ra, name+ "_rightfoot-arch.png")
     print 'Right Arch:', RArch
 
-    return LArch, RArch
-
-def getInnerPressLine(hming, dataname, oname):
-    name = oname.split('_', 1)[0]
-
-    ret = Sprehandle(hming, dataname, oname)
-    if ret < 0:
-        return ret
-
-    ## Left foot
-    hmlImg = rimg(name + "_left.png")
-    img = rimg(name + "_leftgray.png")
-    La = getRorate(img, name + "_leftgray-rotate.png")
-    print 'Angle:', La
-
-    PressLine(hmlImg, img, La, name+ "_leftfoot-pressline.png")
-
-    ## Right foot
-    hmrImg = rimg(name + "_right.png")
-    img = rimg(name + "_rightgray.png")
-    Ra = getRorate(img, name + "_rightgray-rotate.png")
-    print 'Angle:', Ra
-
     PressLine(hmrImg, img, Ra, name + "_rightfoot-pressline.png")
-    return 0
+
+    return LArch,RArch

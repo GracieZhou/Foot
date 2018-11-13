@@ -42,12 +42,11 @@ for f in files :
     # if ret < 0:
     #     continue
 
-    LArch, RArch = fd.getArch(hmImg, os.path.join(indir, f), oname = name+"_org.png")
+    LArch, RArch = fd.getfootReportInfo(hmImg, os.path.join(indir, f), oname = name+"_org.png")
     print LArch,RArch
 
-    fd.getInnerPressLine(hmImg, os.path.join(indir, f), oname = name+"_org.png")
 
-    data = np.array([[200,150],[205,160],[240,180],[230,190]])
+    data = '45,40; 10,10; 20,20; 30,30; 40,40; 1,1'
     ret = fd.drawBalanceImg(hmImg, data, oname = name+"_balance.png")
     print ret
 
