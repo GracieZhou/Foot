@@ -457,10 +457,14 @@ def Sprehandle(hmimg,datafile,oname = 'org.png'):
     return 0
 
 def getRorate(img, oname):
+    angle = 0
     name = oname[0 : oname.rfind('-')]
     rectName = name + '_Rect.png'
     x,y,w,h = getRoiRect(img, rectName)
     print(x,y,w,h)
+    if w == 0 or h == 0:
+        oimg(oname, img)
+        return angle
 
     d = np.rint(h/6)
 
@@ -502,6 +506,11 @@ def getRorate(img, oname):
     return angle
 
 def getRoiRect(img, oname):
+    x = y = w = h = 0
+    minValidPoints = 10
+    if img is None:
+        return x,y,w,h
+
     orig = img.copy()
     if len(img.shape) > 2:
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -511,13 +520,21 @@ def getRoiRect(img, oname):
     # x, y  exchange
     nztx = [[x[1],x[0]] for x in nzt]
 
+    # the foot valid points is less than 10 points
+    if len(nztx) < minValidPoints:
+        return x,y,w,h
+
     # get rect
     x,y,w,h = cv.boundingRect(np.asarray(nztx))
-    imgrect = cv.rectangle(orig, (int(x), int(y)), (int(x+w), int(y+h)), (0,255,0), 2)
+    # imgrect = cv.rectangle(orig, (int(x), int(y)), (int(x+w), int(y+h)), (0,255,0), 2)
     # oimg(oname, imgrect)
     return x,y,w,h
 
 def getBalanceCenter(img):
+    x = y = 0
+    if img is None:
+        return x,y
+
     if len(img.shape) > 2:
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     h, w = img.shape[0:2]
@@ -535,7 +552,7 @@ def getBalanceCenter(img):
     for j in range(0,h):
         Hpress = Hpress + j*SumH[j]
 
-    x = y = 0
+
     if SumP > 0:
         x = int(WPress/SumP)
         y = int(Hpress/SumP)
@@ -556,6 +573,9 @@ def getMaxLine(img, Hstart, Hend, Wstart, Wend, step):
     global pixelMinValue
     LineNumMax = 0
     H = WL = WR = 0
+
+    if img is None:
+        return H,WL,WR
 
     if len(img.shape) > 2:
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -587,6 +607,8 @@ def getMinLine(img, Hstart, Hend, Wstart, Wend):
     global pixelMinValue
     LineNumMin = Wend - Wstart
     H = WL = WR = 0
+    if img is None:
+        return H,WL,WR
 
     if len(img.shape) > 2:
         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -629,7 +651,13 @@ def getLinesArch(hmimg,img,whichone,angle,oname):
 
     rectName = oname.split('_', -1)[0] + '_Rect.png'
     x,y,w,h = getRoiRect(img, rectName)
-    print(x,y,w,h)
+    print(x, y, w, h)
+
+    # no foot on this img
+    if w == 0 or h == 0:
+        oimg(oname, orig)
+        return Arch
+
     Ws = x
     Hs = y
     We = x+w-5
@@ -640,8 +668,10 @@ def getLinesArch(hmimg,img,whichone,angle,oname):
 
     Uh, Uwl, Uwr = getMaxLine(img, Hs, Hs+Hdeep, Ws, We, 1)
     Dh, Dwl, Dwr = getMaxLine(img, He, He-Hdeep, Ws, We, -1)
-    # print "Up: ",Uh, Uwl, Uwr
-    # print "Down: ", Dh, Dwl, Dwr
+    if abs(Uwl-Uwr) == 0 or abs(Dwl-Dwr) == 0:
+        oimg(oname, orig)
+        return Arch
+
     Upoint = Dpoint = np.zeros((2))
     if 'L' == whichone:
         Upoint = np.array([Uwr, Uh])
@@ -664,8 +694,8 @@ def getLinesArch(hmimg,img,whichone,angle,oname):
 
     ## the k1 line and Wc line is parallel
     if k1 == 0:
-        cv.line(orig, (TUpoint[0], TUpoint[1]), (TDpoint[0], TDpoint[1]), (255, 0, 255), 1, cv.LINE_AA)
-        cv.line(orig, (TWcs[0], TWcs[1]), (TWce[0], TWce[1]), (255, 0, 255), 1, cv.LINE_AA)
+        cv.line(orig, (int(TUpoint[0]), int(TUpoint[1])), (int(TDpoint[0]), int(TDpoint[1])), (255, 0, 255), 1, cv.LINE_AA)
+        cv.line(orig, (int(TWcs[0]), int(TWcs[1])), (int(TWce[0]), int(TWce[1])), (255, 0, 255), 1, cv.LINE_AA)
         oimg(oname, orig)
         return Arch
 
@@ -804,9 +834,15 @@ def SConvPressImg(filename, oname):
     if len(B)!=2288:
         print "the press data length is valid:", len(B)
         return -1
+    D = np.zeros((44,52), np.uint8)
+    for j in range(51,-1,-1):
+        for i in range(44):
+            if j>25:
+                D[i][j] = B[i + 1144 + 44 * (51-j)]
+            else:
+                D[i][j] = B[i + 44 * (25 - j)]
 
-    D = np.array(B, dtype=np.uint8).reshape(52,44)
-    Dt = np.transpose(D)
+    Dt = np.array(D, dtype=np.uint8)
 
     img = cv.cvtColor(Dt, cv.COLOR_GRAY2BGR)
     Bimg = cv.resize(img, (0,0), fx=8, fy=8, interpolation=cv.INTER_CUBIC)
