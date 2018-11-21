@@ -37,47 +37,22 @@ for f in files :
 
     hmname = name + ".png"
 
-    hmImg = cv.imread(os.path.join(indir,hmname))
+    # hmImg = cv.imread(os.path.join(indir,hmname))
+    # hmpath = os.path.join(indir,hmname)
+    # print hmpath
     # ret = fd.Sprehandle(hmImg, os.path.join(indir, f), oname = name+"_org.png")
     # if ret < 0:
     #     continue
 
-    LArch, RArch = fd.getfootReportInfo(hmImg, os.path.join(indir, f), oname = name+"_org.png")
+    data = '20,23; 18,20; 20,20; 24,30; 21,26; 25,30'
+    ref = '1,0.78,200,100,0,0,0,0'
+    # ref = ''
+    LArch, RArch, LQ, RQ = fd.getfootReportInfo(os.path.join(indir,hmname), os.path.join(indir, f), data, ref, oname = name+"_org.png")
     print LArch,RArch
+    print (LQ), (RQ)
+
+    Ref = fd.setRefPoints('line1.txt')
+    print Ref
 
 
-    data = '45,40; 10,10; 20,20; 30,30; 40,40; 1,1'
-    ret = fd.drawBalanceImg(hmImg, data, oname = name+"_balance.png")
-    print ret
 
-'''
-    img = fd.rimg(name + "_org.png")
-    fd.drawBalanceImg(hmImg, img, oname = name+"_ba
-    
-    
-    lance.png")
-
-    ## Left foot
-    hmlImg = fd.rimg(name + "_left.png")
-    img = fd.rimg(name+"_leftgray.png")
-    La = fd.getRorate(img, oname = name + "_leftgray-rotate.png")
-    print 'Angle:', La
-
-    img = fd.rimg(name + "_leftgray-rotate.png")
-    ret = fd.getLinesArch(hmlImg, img, 'L', La, oname=name+ "_leftfoot-arch.png")
-    print 'Left Arch:', ret
-
-    fd.PressLine(hmlImg, img, La, oname=name+ "_leftfoot-pressline.png")
-
-    ## Right foot
-    hmrImg = fd.rimg(name + "_right.png")
-    img = fd.rimg(name + "_rightgray.png")
-    Ra = fd.getRorate(img, oname=name + "_rightgray-rotate.png")
-    print 'Angle:', Ra
-
-    img = fd.rimg(name + "_rightgray-rotate.png")
-    ret = fd.getLinesArch(hmrImg, img, 'R', Ra, oname=name+ "_rightfoot-arch.png")
-    print 'Right Arch:', ret
-
-    fd.PressLine(hmrImg, img, Ra, oname=name + "_rightfoot-pressline.png")
-'''

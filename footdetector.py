@@ -373,6 +373,7 @@ def imfill(img):
     im_out = img | im_floodfill_inv
     return im_out
 
+
 def getFootArchIndex(img,odir='.',oname='archindex.png'):
     orig = img.copy()
     opp = getYCbCr(img,oname.split('.')[0] + "_opp.png")
@@ -427,20 +428,11 @@ def getFootArchIndex(img,odir='.',oname='archindex.png'):
 
     return archIndex
 
+
 def Sprehandle(hmimg,datafile,oname = 'org.png'):
-    ret = SConvPressImg(datafile, oname)
-    if ret < 0:
-        return ret
-    img = rimg(oname)
+    img = SConvPressImg(datafile)
     if img is None:
         print 'the org image is None.', oname
-        return -1
-
-    if len(img.shape) > 2:
-        img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-
-    if hmimg is None:
-        print 'the heatmap image is None.'
         return -1
 
     hmh,hmw = hmimg.shape[0:2]
@@ -456,40 +448,45 @@ def Sprehandle(hmimg,datafile,oname = 'org.png'):
     oimg(oname.split('_',-1)[0] + '_rightgray.png', img[:, int(w/2):])
     return 0
 
-def getRorate(img, oname):
+
+def getRorate(img, ref, oname):
     angle = 0
     name = oname[0 : oname.rfind('-')]
     rectName = name + '_Rect.png'
-    x,y,w,h = getRoiRect(img, rectName)
-    print(x,y,w,h)
-    if w == 0 or h == 0:
-        oimg(oname, img)
-        return angle
+    if len(ref)==4 and ref[0]!=0:
+        k = ref[1]/ref[0]
+    else:
+        x,y,w,h = getRoiRect(img, rectName)
+        # print(x,y,w,h)
+        if w == 0 or h == 0:
+            oimg(oname, img)
+            return angle
 
-    d = np.rint(h/6)
+        d = np.rint(h/6)
 
-    # determine the up and down lines
-    US = int(y+d)
-    UE = int(y+3*d)
-    DS = int(y+4*d)
-    DE = int(y+h)
+        # determine the up and down lines
+        US = int(y+d)
+        UE = int(y+4*d)
+        DS = int(y+4*d)
+        DE = int(y+h)
 
-    Ux,Uy = getBalanceCenter(img[US:UE, :])
-    Dx,Dy = getBalanceCenter(img[DS:DE, :])
+        Ux,Uy = getBalanceCenter(img[US:UE, :])
+        Dx,Dy = getBalanceCenter(img[DS:DE, :])
 
-    ## draw the up and down BC points
-    # orig = img.copy()
-    # cv.circle(orig, (int(Ux), int(Uy+US)), 5, (255, 0, 0), -1)
-    # cv.circle(orig, (int(Dx), int(Dy+DS)), 5, (255, 0, 0), -1)
-    # rectName = oname.split('-', -1)[0] + '_BC.png'
-    # oimg(rectName, orig)
-    # print('----up point----')
-    # print(Ux, Uy+US)
-    # print('----Down point----')
-    # print(Dx, Dy+DS)
+        ## draw the up and down BC points
+        # orig = img.copy()
+        # cv.circle(orig, (int(Ux), int(Uy+US)), 5, (255, 0, 0), -1)
+        # cv.circle(orig, (int(Dx), int(Dy+DS)), 5, (255, 0, 0), -1)
+        # rectName = oname.split('-', -1)[0] + '_BC.png'
+        # oimg(rectName, orig)
+        # print('----up point----')
+        # print(Ux, Uy+US)
+        # print('----Down point----')
+        # print(Dx, Dy+DS)
 
-    # Height is X axis, and Width is Y axis for Img
-    k = float(Dx-Ux)/(Dy-Uy+3*d)
+        # Height is X axis, and Width is Y axis for Img
+        k = float(Dx-Ux)/(Dy-Uy+(DS-US))
+
     angle = math.atan(k)
     degree = angle*180/math.pi
 
@@ -505,7 +502,8 @@ def getRorate(img, oname):
 
     return angle
 
-def getRoiRect(img, oname):
+
+def getRoiRect(img, oname = 'rect.png'):
     x = y = w = h = 0
     minValidPoints = 10
     if img is None:
@@ -529,6 +527,7 @@ def getRoiRect(img, oname):
     # imgrect = cv.rectangle(orig, (int(x), int(y)), (int(x+w), int(y+h)), (0,255,0), 2)
     # oimg(oname, imgrect)
     return x,y,w,h
+
 
 def getBalanceCenter(img):
     x = y = 0
@@ -559,6 +558,7 @@ def getBalanceCenter(img):
 
     return x,y
 
+
 def getPointAffinedPos(inpoint, center, angle):
     outpoint = np.zeros((2))
     x = inpoint[0] - center[0]
@@ -567,6 +567,34 @@ def getPointAffinedPos(inpoint, center, angle):
     outpoint[0] = int(x * math.cos(angle) + y * math.sin(angle) + center[0])
     outpoint[1] = int(-x * math.sin(angle) + y * math.cos(angle) + center[1])
     return outpoint
+
+
+def getBoundaryPoint(img, Hstart, Hend, Wstart, Wend, step):
+    ## find the left and right boundary points of img
+    global pixelMinValue
+    HL = WL = HR= WR = 0
+
+    if img is None:
+        return HL,WL,HR, WR
+
+    if len(img.shape) > 2:
+        img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+    WL = max(Wstart, Wend)
+    WR = min(Wstart, Wend)
+    for i in range(Hstart, Hend, step):
+        for j in range(Wstart, Wend):
+            if img[i][j] > pixelMinValue:
+                if j <= WL:
+                    WL = j
+                    HL = i
+
+                if j >= WR:
+                    WR = j
+                    HR = i
+
+    return HL,WL,HR,WR
+
 
 def getMaxLine(img, Hstart, Hend, Wstart, Wend, step):
     ## find the longest line of img
@@ -636,26 +664,27 @@ def getMinLine(img, Hstart, Hend, Wstart, Wend):
     return H,WL,WR
 
 
-def getLinesArch(hmimg,img,whichone,angle,oname):
-    orig = hmimg.copy()
-
+def getLinesArch(hmimg,img,whichone,angle,ref,oname):
     ## Arch is [0,1,2,3,4], 2 is normal, >2 is high arch, <2 is low arch
-    Arch = 0
+    # orig = hmimg.copy()
+
+    Arch = 2
     H,W = img.shape[0:2]
     center = np.array((int(W/2), int(H/2)))
-    print "img(H,W):",H,W
-    # set the line start and end H axis
-    DiffHW = int(abs(H-W)/2)
-    Ths = DiffHW + 1
-    The = H - DiffHW - 1
+    # print "img(H,W):",H,W
 
     rectName = oname.split('_', -1)[0] + '_Rect.png'
     x,y,w,h = getRoiRect(img, rectName)
-    print(x, y, w, h)
+    # print(x, y, w, h)
+
+    # set the line start and end H axis
+    DiffHW = int(min(h,W)/2)
+    Ths = int(y+h/2-DiffHW)+1
+    The = int(y+h/2+DiffHW)-1
 
     # no foot on this img
     if w == 0 or h == 0:
-        oimg(oname, orig)
+        # oimg(oname, orig)
         return Arch
 
     Ws = x
@@ -663,74 +692,101 @@ def getLinesArch(hmimg,img,whichone,angle,oname):
     We = x+w-5
     He = y+h-5
     Hdeep = int(h/3)
-    Wc = int(x+w/2)
-    print Hs,He,Ws,We,Hdeep,Wc
+    # Wc = int(x+w/2)
+    # print Hs,He,Ws,We,Hdeep,Wc
 
-    Uh, Uwl, Uwr = getMaxLine(img, Hs, Hs+Hdeep, Ws, We, 1)
-    Dh, Dwl, Dwr = getMaxLine(img, He, He-Hdeep, Ws, We, -1)
+    # get Ref line is out Ref line or the heal gravity center
+    if len(ref) == 4 and ref[0] != 0:
+        Refpoint = getPointAffinedPos((ref[3],ref[2]), center, -angle)
+        Refl = Dx = Refpoint[0]
+        Dy = Refpoint[1]
+    else:
+        Dx, Dy = getBalanceCenter(img[He-Hdeep:He, :])
+        Refl = Dx
+
+    print 'angle:', angle
+    print 'Dx,Dy:', Dx,Dy
+
+    if 0:
+        Uh, Uwl, Uwr = getMaxLine(img, Hs, Hs+Hdeep, Ws, We, 1)
+        Dh, Dwl, Dwr = getMaxLine(img, He, He-Hdeep, Ws, We, -1)
+    else:
+        Uhl, Uwl, Uhr, Uwr =getBoundaryPoint(img, Hs, Hs+Hdeep, Ws, We, 1)
+        Dhl, Dwl, Dhr, Dwr = getBoundaryPoint(img, He, He-Hdeep, Ws, We, -1)
+
     if abs(Uwl-Uwr) == 0 or abs(Dwl-Dwr) == 0:
-        oimg(oname, orig)
+        # oimg(oname, orig)
         return Arch
 
     Upoint = Dpoint = np.zeros((2))
     if 'L' == whichone:
-        Upoint = np.array([Uwr, Uh])
-        Dpoint = np.array([Dwr, Dh])
+        Upoint = np.array([Uwr, Uhr])
+        Dpoint = np.array([Dwr, Dhr])
     else:
-        Upoint = np.array([Uwl, Uh])
-        Dpoint = np.array([Dwl, Dh])
+        Upoint = np.array([Uwl, Uhl])
+        Dpoint = np.array([Dwl, Dhl])
     # print "Upoint: ", Upoint
     # print "Dpoint: ", Dpoint
 
     # The tangent slope, H is X axis, and W is Y axis
     k1 = float(Dpoint[0]-Upoint[0])/float(Dpoint[1]-Upoint[1])
-    print "k1: ", k1
 
     # Transform the points to Heat map img
-    TUpoint = getPointAffinedPos(Upoint, center, angle)
-    TDpoint = getPointAffinedPos(Dpoint, center, angle)
-    TWcs = getPointAffinedPos((Wc, Ths), center, angle)
-    TWce = getPointAffinedPos((Wc, The), center, angle)
+    # TUpoint = getPointAffinedPos(Upoint, center, angle)
+    # TDpoint = getPointAffinedPos(Dpoint, center, angle)
+    # TRefls = getPointAffinedPos((Refl, Ths), center, angle)
+    # TRefle = getPointAffinedPos((Refl, The), center, angle)
 
-    ## the k1 line and Wc line is parallel
+    ## the k1 line and Refl line is parallel
     if k1 == 0:
-        cv.line(orig, (int(TUpoint[0]), int(TUpoint[1])), (int(TDpoint[0]), int(TDpoint[1])), (255, 0, 255), 1, cv.LINE_AA)
-        cv.line(orig, (int(TWcs[0]), int(TWcs[1])), (int(TWce[0]), int(TWce[1])), (255, 0, 255), 1, cv.LINE_AA)
-        oimg(oname, orig)
+        # cv.line(orig, (int(TUpoint[0]), int(TUpoint[1])), (int(TDpoint[0]), int(TDpoint[1])), (255, 0, 255), 1, cv.LINE_AA)
+        # cv.line(orig, (int(TRefls[0]), int(TRefls[1])), (int(TRefle[0]), int(TRefle[1])), (255, 0, 255), 1, cv.LINE_AA)
         return Arch
 
     # get the cross point of k1 and W center line
-    CrossP = np.array([Wc, (Wc-Dpoint[0])/k1+Dpoint[1]])
+    CrossP = np.array([Refl, (Refl-Dpoint[0])/k1+Dpoint[1]])
 
     # get the lines slope
     rad = math.atan(k1)
     Qrad = float(rad)/4
     k2 = math.tan(2 * Qrad)
     k3 = math.tan(Qrad)
-    print "k2: ", k2
-    print "k3: ", k3
+    print "(k1,k2,k3): ", k1,k2,k3
 
+    ## draw line on img
+    orig = img.copy()
     ## Transform the lines start and end points to heat map img
-    Tk1s = getPointAffinedPos((int(k1 * (Ths - Dpoint[1]) + Dpoint[0]), Ths), center, angle)
-    Tk1e = getPointAffinedPos((int(k1 * (The - Dpoint[1]) + Dpoint[0]), The), center, angle)
+    # Tk1s = getPointAffinedPos((int(k1 * (Ths - Dpoint[1]) + Dpoint[0]), Ths), center, angle)
+    # Tk1e = getPointAffinedPos((int(k1 * (The - Dpoint[1]) + Dpoint[0]), The), center, angle)
+    #
+    # Tk2s = getPointAffinedPos((int(k2 * (Ths - CrossP[1]) + CrossP[0]), Ths), center, angle)
+    # Tk2e = getPointAffinedPos((int(k2 * (The - CrossP[1]) + CrossP[0]), The), center, angle)
+    #
+    # Tk3s = getPointAffinedPos((int(k3 * (Ths - CrossP[1]) + CrossP[0]), Ths), center, angle)
+    # Tk3e = getPointAffinedPos((int(k3 * (The - CrossP[1]) + CrossP[0]), The), center, angle)
 
-    Tk2s = getPointAffinedPos((int(k2 * (Ths - CrossP[1]) + CrossP[0]), Ths), center, angle)
-    Tk2e = getPointAffinedPos((int(k2 * (The - CrossP[1]) + CrossP[0]), The), center, angle)
+    Tk1s = np.array((int(k1 * (Ths - Dpoint[1]) + Dpoint[0]), Ths))
+    Tk1e = np.array((int(k1 * (The - Dpoint[1]) + Dpoint[0]), The))
 
-    Tk3s = getPointAffinedPos((int(k3 * (Ths - CrossP[1]) + CrossP[0]), Ths), center, angle)
-    Tk3e = getPointAffinedPos((int(k3 * (The - CrossP[1]) + CrossP[0]), The), center, angle)
+    Tk2s = np.array((int(k2 * (Ths - CrossP[1]) + CrossP[0]), Ths))
+    Tk2e = np.array((int(k2 * (The - CrossP[1]) + CrossP[0]), The))
+
+    Tk3s = np.array((int(k3 * (Ths - CrossP[1]) + CrossP[0]), Ths))
+    Tk3e = np.array((int(k3 * (The - CrossP[1]) + CrossP[0]), The))
 
     ## get lines start point and end point
     lines = list()
     lines.append((int(Tk1s[0]), int(Tk1s[1]), int(Tk1e[0]), int(Tk1e[1])))
     lines.append((int(Tk2s[0]), int(Tk2s[1]), int(Tk2e[0]), int(Tk2e[1])))
     lines.append((int(Tk3s[0]), int(Tk3s[1]), int(Tk3e[0]), int(Tk3e[1])))
-    lines.append((int(TWcs[0]), int(TWcs[1]), int(TWce[0]), int(TWce[1])))
-    print("========lines=======")
-    print(lines)
+    lines.append((int(Refl), int(Ths), int(Refl), int(The)))
+    # print("========lines=======")
+    # print(lines)
 
-    cv.circle(orig, (int(TUpoint[0]), int(TUpoint[1])), 2, (255, 0, 0), -1)
-    cv.circle(orig, (int(TDpoint[0]), int(TDpoint[1])), 2, (255, 0, 0), -1)
+    cv.circle(orig, (int(Dx), int(Dy + He - Hdeep)), 4, (255, 0, 0), -1)
+    cv.rectangle(orig, (int(x), int(y)), (int(x + w), int(y + h)), (0, 255, 0), 2)
+    cv.circle(orig, (int(Upoint[0]), int(Upoint[1])), 2, (255, 0, 0), -1)
+    cv.circle(orig, (int(Dpoint[0]), int(Dpoint[1])), 2, (255, 0, 0), -1)
     for k in range(len(lines)):
         cv.line(orig, (lines[k][0], lines[k][1]), (lines[k][2], lines[k][3]), (255, 0, 255), 1, cv.LINE_AA)
 
@@ -738,16 +794,21 @@ def getLinesArch(hmimg,img,whichone,angle,oname):
 
     ## get arch line
     Ah,Awl,Awr = getMinLine(img, Hs+Hdeep, He-Hdeep, Ws, We)
-    if Awl == -1 and Awr == -1:
+    cv.line(orig, (int(x), int(Ah)), (int(x+w), int(Ah)), (0, 0, 255), 1, cv.LINE_AA)
+    oimg(oname, orig)
+
+    if Ah==0 or Awl==Awr:
         Arch = 4
         return Arch
 
     Px = np.zeros((4))
-    Px[0] = Wc
-    Px[1] = int(Dpoint[0] + (Ah - Dpoint[1]) / k1)
-    Px[2] = int(CrossP[0] + (Ah - CrossP[1]) / k2)
-    Px[3] = int(CrossP[0] + (Ah - CrossP[1]) / k3)
+    Px[0] = Refl
+    Px[1] = int(Dpoint[0] + float(Ah - Dpoint[1]) * k1)
+    Px[2] = int(CrossP[0] + float(Ah - CrossP[1]) * k2)
+    Px[3] = int(CrossP[0] + float(Ah - CrossP[1]) * k3)
     Px = np.sort(Px)
+    print Ah, Awl, Awr
+    print 'Px:', Px
 
     if 'L' == whichone:
         if Awr < Px[0]:
@@ -807,29 +868,35 @@ def PressLine(hmimg,img,angle,oname):
     oimg(oname,orig)
     return 0
 
-def SConvPressImg(filename, oname):
+
+def SConvPressImg(filename):
+    # print 'SConvPressImg:', filename
     if filename.find('.txt') >= 0:
         fo = open(filename, 'r')
-        str = fo.read()
+        Sdata = fo.read()
         fo.close()
     else:
-        str = filename
+        Sdata = filename
 
+    if len(Sdata) < 1:
+        print "the data len is valid"
+        return None
 
     ## remove space and []
-    if len(str)>0:
-        str = str.strip('')
-        str = str.strip('[')
-        str = str.strip(']')
+    if len(Sdata)>0:
+        Sdata = Sdata.strip('')
+        Sdata = Sdata.strip('[')
+        Sdata = Sdata.strip(']')
 
-    Temp = str.split(',')
-    B = [int(x) for x in Temp]
+    Temp = Sdata.split(',')
+    B = [float(x) for x in Temp]
 
     # enlarge value
     scaling = int(255/max(B))
-    print "Scaling:", scaling
+    # print "Scaling:", scaling
     if scaling>1:
         B = [x*scaling for x in B]
+
 
     if len(B)!=2288:
         print "the press data length is valid:", len(B)
@@ -846,71 +913,210 @@ def SConvPressImg(filename, oname):
 
     img = cv.cvtColor(Dt, cv.COLOR_GRAY2BGR)
     Bimg = cv.resize(img, (0,0), fx=8, fy=8, interpolation=cv.INTER_CUBIC)
-    oimg(oname, Bimg)
-    return 0
+
+    return Bimg
+
 
 def drawBalanceImg(hmimg, BCdata, oname):
     name = oname.split('.png')[0].split('_', 1)[0]
-    orig = hmimg.copy()
     points = list()
+
+    orig = hmimg.copy()
+
+    ## draw center of x axis and y axis
+    h,w = hmimg.shape[0:2]
+    center = np.array([int(w/2), int(h/2)])
+    deep = 20
+    cv.line(orig, (int(center[0]-deep), int(center[1])), (int(center[0]+deep), int(center[1])), (0,0,255), 1, cv.LINE_AA)
+    cv.line(orig, (int(center[0]), int(center[1]-deep)), (int(center[0]), int(center[1]+deep)), (0,0,255), 1, cv.LINE_AA)
 
     if BCdata.find('.txt') >= 0:
         fo = open(BCdata, 'r')
-        str = fo.read()
+        Sdata = fo.read()
         fo.close()
     else:
-        str = BCdata
+        Sdata = BCdata
 
-    print 'Balance position:', str
-    if len(str)>0:
-        str = str.strip('')
-        str = str.strip('[')
-        str = str.strip(']')
+    print 'Balance position:', Sdata
+    if len(Sdata)>0:
+        Sdata = Sdata.strip('')
+        Sdata = Sdata.strip('[')
+        Sdata = Sdata.strip(']')
 
-    Temp = str.split(';')
-    for i in range(len(Temp)):
-        Tp = Temp[i].split(',')
-        Tpn = [int(x) for x in Tp]
-        points.append(Tpn)
+        Temp = Sdata.split(';')
+        for i in range(len(Temp)):
+            Tp = Temp[i].split(',')
+            Tpn = [8*int(x) for x in Tp]
+            points.append(Tpn)
 
-    if len(points) > 0:
-        for i in range(len(points)):
-            cv.circle(orig, (int(8*points[i][0]), int(8*points[i][1])), 2, (50, 50, 50), -1)
+        if len(points) > 0:
+            for i in range(len(points)):
+                cv.circle(orig, (int(points[i][0]), int(points[i][1])), 4, (100, 100, 100), -1)
+                if i > 0:
+                    cv.line(orig, (int(points[i-1][0]), int(points[i-1][1])), (int(points[i][0]), int(points[i][1])),
+                            (100, 100, 100), 1, cv.LINE_AA)
 
     oimg(name+'_balance.png', orig)
     return 0
 
-def getfootReportInfo(hmImg, dataname, oname):
+
+def Qpress(img):
+    Q = np.zeros((4))
+
+    if img is None:
+        print 'the image is null'
+        return Q
+
+    if len(img.shape) > 2:
+        img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+    H,W = img.shape[0:2]
+    x,y,w,h = getRoiRect(img, '')
+    # print(x, y, w, h)
+
+    Hcen = int(y+h/2)
+    Wcen = int(x+w/2)
+
+    Tnum = np.sum(img)
+    Q1 = Q2 = Q3 = 0
+    if Tnum > 0:
+        for i in range(Hcen):
+            for j in range(Wcen):
+                Q1 = Q1+img[i][j]
+
+        for i in range(Hcen):
+            for j in range(Wcen, W):
+                Q2 = Q2+img[i][j]
+
+        for i in range(Hcen, H):
+            for j in range(Wcen):
+                Q3 = Q3+img[i][j]
+
+        # print (Q1,Q2,Q3), Tnum
+        Q[0] = "%.2f" % (float(Q1) / Tnum)
+        Q[1] = "%.2f" % (float(Q2) / Tnum)
+        Q[2] = "%.2f" % (float(Q3) / Tnum)
+        Q[3] = "%.2f" % (1-Q[0]-Q[1]-Q[2])
+    return Q
+
+
+def getfootReportInfo(hmname, dataname, BCdata, Refline, oname):
+    hmimg = cv.imread(hmname)
+    if hmimg is None:
+        print 'the heatmap image is None.'
+        return -1
+
     name = oname.split('.png')[0].split('_', 1)[0]
     print 'oname', oname
     print name
 
-    ret = Sprehandle(hmImg, dataname, name+'_org.png')
+    ret = Sprehandle(hmimg, dataname, name+'_org.png')
     if ret < 0:
         return ret
+
+    lref,rref = getRefPoints(Refline)
 
     ## Left foot
     hmlImg = rimg(name + "_left.png")
     img = rimg(name + "_leftgray.png")
-    La = getRorate(img, name + "_leftgray-rotate.png")
-    print 'Angle:', La
+    La = getRorate(img, lref, name + "_leftgray-rotate.png")
+    print 'Left Angle:', La
 
     img = rimg(name + "_leftgray-rotate.png")
-    LArch = getLinesArch(hmlImg, img, 'L', La, oname=name+ "_leftfoot-arch.png")
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    LArch = getLinesArch(hmlImg, img, 'L', La, lref, oname=name+ "_leftfoot-arch.png")
     print 'Left Arch:', LArch
 
-    PressLine(hmlImg, img, La, name+ "_leftfoot-pressline.png")
+    PressLine(hmlImg, gray, La, name+ "_leftfoot-pressline.png")
+    Qp = Qpress(gray)
+    print Qp
+    LQ = [str(x) for x in Qp]
 
     ## Right foot
     hmrImg = rimg(name + "_right.png")
     img = rimg(name + "_rightgray.png")
-    Ra = getRorate(img, name + "_rightgray-rotate.png")
-    print 'Angle:', Ra
+    Ra = getRorate(img, rref, name + "_rightgray-rotate.png")
+    print 'Right Angle:', Ra
 
     img = rimg(name + "_rightgray-rotate.png")
-    RArch = getLinesArch(hmrImg, img, 'R', Ra, name+ "_rightfoot-arch.png")
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    RArch = getLinesArch(hmrImg, img, 'R', Ra, rref, name+ "_rightfoot-arch.png")
     print 'Right Arch:', RArch
 
-    PressLine(hmrImg, img, Ra, name + "_rightfoot-pressline.png")
+    PressLine(hmrImg, gray, Ra, name + "_rightfoot-pressline.png")
+    Qp = Qpress(gray)
+    RQ = [str(Qp[1]),str(Qp[0]), str(Qp[3]), str(Qp[2])]
 
-    return LArch,RArch
+    drawBalanceImg(hmimg, BCdata, name + "_balance.png")
+
+    return LArch, RArch, LQ, RQ
+
+
+def fitline(data):
+    nz = np.nonzero(data)
+    nzt = np.transpose(np.asarray(nz))
+    nzta = np.array(nzt)
+    # have refline or not
+    if len(nzta) < 2:
+        return 0,0,0,0
+
+    # Height is X axis, and Width is Y axis for Img
+    [vh,vw,h,w] = cv.fitLine(nzta, cv.DIST_HUBER, 0, 0.01, 0.01)
+    return vh,vw,h,w
+
+def getRefPoints(filename):
+    lref = rref = np.array([])
+    if filename.find('.txt') >= 0:
+        fo = open(filename, 'r')
+        Sdata = fo.read()
+        fo.close()
+    else:
+        Sdata = filename
+
+    print 'Ref Points:', Sdata
+    if len(Sdata)>0:
+        Sdata = Sdata.strip('')
+        Sdata = Sdata.strip('[')
+        Sdata = Sdata.strip(']')
+
+        Temp = Sdata.split(',')
+        B = [float(x) for x in Temp]
+        if len(B) == 8:
+            lref = np.array([B[0],B[1],B[2],B[3]])
+            rref = np.array([B[4],B[5],B[6],B[7]])
+
+    return lref,rref
+
+def setRefPoints(filename):
+    img = SConvPressImg(filename)
+
+    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    h,w = gray.shape[0:2]
+    leftD = gray[:, 0:int(w/2)]
+    rightD = gray[:, int(w/2):]
+
+    lvh,lvw,lh,lw = fitline(leftD)
+    rvh,rvw,rh,rw = fitline(rightD)
+
+    Ref = ["%.4f"%lvh, "%.4f"%lvw, "%.4f"%lh, "%.4f"%lw, "%.4f"%rvh, "%.4f"%rvw, "%.4f"%rh, "%.4f"%rw]
+
+
+    if lvh!=0:
+        lk = lvw/lvh
+        center = np.array((int(w / 2), int(h / 2)))
+        angle = math.atan(lk)
+        Refpoint = getPointAffinedPos((lw, lh), center, -angle)
+        Refpoint2 = getPointAffinedPos((int((280-lh)*lk+lw), 280), center, -angle)
+        print Refpoint, Refpoint2
+        cv.line(img, (int(lw-lk*lh), 0), (int((340-lh)*lk+lw),340), (0,255,0),1)
+        cv.circle(img, (int(lw), int(lh)), 3, (255,0,0), -1)
+        cv.circle(img, (int(Refpoint[0]), int(Refpoint[1])), 3, (255, 0, 255), -1)
+        cv.circle(img, (int(Refpoint2[0]), int(Refpoint2[1])), 3, (255, 0, 255), -1)
+        cv.circle(img, (int(center[0]), int(center[1])), 3, (0, 255, 255), -1)
+    if rvh!=0:
+        rk = rvw/rvh
+        cv.line(img, (int(rw-rk*rh),0), (int((340-rh)*rk+rw),340), (0,255,0),1)
+
+    oimg('line1.png', img)
+    return Ref
+

@@ -15,6 +15,8 @@ def footReportInfo():
     patiendId = request.form["patiendId"]
     picUrl = request.form["picUrl"]
     DataUrl = request.form["DataUrl"]
+    BCData = request.form["BCData"]
+    RefData = request.form["RefData"]
 
 
     # baseDir = "C:/foot-dectector/nginx-1.14.0/html"
@@ -32,6 +34,8 @@ def footReportInfo():
     msg = ""
     leftArch = 0
     rightArch = 0
+    lQpress = ""
+    rQpress = ""
 
     try:
         if not os.path.exists(fileDir):
@@ -58,9 +62,9 @@ def footReportInfo():
 
     if code == 1:
         try:
-            hmImg = cv.imread(picUrl)
+            # hmImg = cv.imread(picUrl)
             # DataUrl = 'D:/WORKSPACE/python/foot/html/foot1.txt'
-            leftArch, rightArch = fd.getfootReportInfo(hmImg, DataUrl, fileDir+"/foot.png")
+            leftArch, rightArch, lQpress, rQpress = fd.getfootReportInfo(picUrl, DataUrl, BCData, RefData, fileDir+"/foot.png")
 
         except Exception as e:
             code = 0
@@ -70,29 +74,35 @@ def footReportInfo():
     # baseURI = "{}/{}/{}/{}".format(baseDomain, patiendId, datePart, timePart)
     baseURI = "{}/{}".format(baseDomain, patiendId)
     suffix = picUrl[picUrl.rfind("."):len(picUrl)]
-    leftArchImg = "foot_leftfoot-arch" + suffix
-    rightArchImg = "foot_rightfoot-arch" + suffix
+    # leftArchImg = "foot_leftfoot-arch" + suffix
+    # rightArchImg = "foot_rightfoot-arch" + suffix
     leftPressImg = "foot_leftfoot-pressline" + suffix
     rightPressImg = "foot_rightfoot-pressline" + suffix
+    balanceImg = "foot_balance" + suffix
 
     if code == 1:
-        leftArchImg = "{}/{}".format(baseURI, leftArchImg)
-        rightArchImg = "{}/{}".format(baseURI, rightArchImg)
+        # leftArchImg = "{}/{}".format(baseURI, leftArchImg)
+        # rightArchImg = "{}/{}".format(baseURI, rightArchImg)
         leftPressImg = "{}/{}".format(baseURI, leftPressImg)
         rightPressImg = "{}/{}".format(baseURI, rightPressImg)
+        balanceImg = "{}/{}".format(baseURI, balanceImg)
     else:
-        leftArchImg = ""
-        rightArchImg = ""
+        # leftArchImg = ""
+        # rightArchImg = ""
         leftPressImg = ""
         rightPressImg = ""
+        balanceImg = ""
 
     data = {
         "leftArch": leftArch,
         "rightArch": rightArch,
-        "leftArchImg": leftArchImg,
-        "rightArchImg": rightArchImg,
+        "lQpress": lQpress,
+        "rQpress": rQpress,
+        # "leftArchImg": leftArchImg,
+        # "rightArchImg": rightArchImg,
         "leftPressImg": leftPressImg,
-        "rightPressImg": rightPressImg
+        "rightPressImg": rightPressImg,
+        "balanceImg": balanceImg
     }
 
     result = {
@@ -104,6 +114,36 @@ def footReportInfo():
     return jsonify(result=result)
 
 
+@app.route("/footReport/fetchRef", methods=["POST"])
+def fetchRef():
+    DataUrl = request.form["DataUrl"]
+
+    code = 1
+    msg = ""
+    refline = ""
+
+    try:
+        refline = fd.setRefPoints(DataUrl)
+
+    except Exception as e:
+        code = 0
+        msg = "fetch Ref line error"
+        print("Exception {}", e)
+
+
+    data = {
+        "refline": refline
+    }
+
+    result = {
+        "code": code,
+        "msg": msg,
+        "data": data
+    }
+
+    return jsonify(result=result)
+
+'''
 @app.route("/footReport/balance", methods=["POST"])
 def footReportBalance():
     patiendId = request.form["patiendId"]
@@ -143,7 +183,7 @@ def footReportBalance():
 
     if code == 1:
         try:
-            hmImg = cv.imread(fileName)
+            hmImg = cv.imread(picUrl)
             # DataUrl = 'D:/WORKSPACE/python/foot/html/b.txt'
             fd.drawBalanceImg(hmImg, DataUrl, fileDir + "/foot")
 
@@ -173,6 +213,7 @@ def footReportBalance():
     }
 
     return jsonify(result=result)
+'''
 
 @app.route('/html/<path:path>')
 def send_file(path):
