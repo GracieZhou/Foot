@@ -16,11 +16,11 @@ def footReportInfo():
     picUrl = request.form["picUrl"]
     DataUrl = request.form["DataUrl"]
     BCData = request.form["BCData"]
-    RefData = request.form["RefData"]
+    RefData = request.form.get("RefData", None)
 
 
     # baseDir = "C:/foot-dectector/nginx-1.14.0/html"
-    # baseDomain = "http://119.23.128.174:8090"
+    # baseDomain = "http://120.79.130.74:8090"
 
     baseDir = "D:/WORKSPACE/python/foot/html"
     baseDomain = "http://localhost:5000/html"
@@ -117,22 +117,49 @@ def footReportInfo():
 @app.route("/footReport/fetchRef", methods=["POST"])
 def fetchRef():
     DataUrl = request.form["DataUrl"]
+    Mac = request.form["Mac"]
+
+    # baseDir = "C:/foot-dectector/nginx-1.14.0/html"
+    # baseDomain = "http://120.79.130.74:8090"
+
+    baseDir = "D:/WORKSPACE/python/foot/html"
+    baseDomain = "http://localhost:5000/html"
+
+    fileDir = "{}/{}/{}".format(baseDir, 'HW',Mac)
 
     code = 1
     msg = ""
     refline = ""
 
     try:
-        refline = fd.setRefPoints(DataUrl)
+        if not os.path.exists(fileDir):
+            os.makedirs(fileDir)
 
     except Exception as e:
         code = 0
-        msg = "fetch Ref line error"
+        msg = "create dir error"
         print("Exception {}", e)
 
+    if code == 1:
+        try:
+            refline = fd.setRefPoints(DataUrl, fileDir+'/calibration.png')
+        except Exception as e:
+            code = 0
+            msg = "fetch Ref line error"
+            print("Exception {}", e)
+
+    baseURI = "{}/{}/{}".format(baseDomain, 'HW', Mac)
+    caliImg = "calibration.png"
+
+    if code == 1:
+        caliImg = "{}/{}".format(baseURI, caliImg)
+
+    else:
+        caliImg = ""
 
     data = {
-        "refline": refline
+        "refline": refline,
+        "caliImg": caliImg
     }
 
     result = {

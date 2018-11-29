@@ -11,18 +11,19 @@ import math
 import numpy_indexed as npi
 import os
 from PIL import Image
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 pixelsPerMetric = None
 odir = '.'
 pixelMinValue = 1
+
+
 def oimg(name,img):
     global odir
     if not os.path.exists(odir):
         os.makedirs(odir)
-    #os.chdir(odir)
-    #cv.imwrite(name,img)
     cv.imwrite(os.path.join(odir,name),img)
+
 
 def imadjust(x,a,b,c,d,gamma=1):
     # Similar to imadjust in MATLAB.
@@ -36,6 +37,7 @@ def imadjust(x,a,b,c,d,gamma=1):
     y = (((x - a) / (b - a)) ** gamma) * (d - c) + c
     return y
 
+
 def rimg(name):
     #pwd = os.getpwd()
     #global odir
@@ -46,19 +48,23 @@ def rimg(name):
     #os.chdir()
     return img
 
+
 def setodir(od):
     global odir
     odir= od
+
 
 def dshow(img):
     cv.namedWindow('debug',cv.WINDOW_NORMAL)
     cv.imshow('debug',img)
     cv.waitKey()
 
+
 def midpoint(ptA, ptB):
     return ((ptA[0] + ptB[0]) * 0.5, (ptA[1] + ptB[1]) * 0.5)
 
-def drawLines(lines,oimg):
+
+def drawLines(lines, oimg):
     if lines is not None:
         for i in range(0, len(lines)):
             rho = lines[i][0][0]
@@ -71,6 +77,7 @@ def drawLines(lines,oimg):
             pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
             cv.line(oimg, pt1, pt2, (0,0,255), 3, cv.LINE_AA)
 
+
 def drawLinesP(linesP,oimg):
     if linesP is not None:
         for i in range(0, len(linesP)):
@@ -81,6 +88,7 @@ def drawLinesP(linesP,oimg):
 def angle_cos(p0, p1, p2):
     d1, d2 = (p0-p1).astype('float'), (p2-p1).astype('float')
     return abs( np.dot(d1, d2) / np.sqrt( np.dot(d1, d1)*np.dot(d2, d2) ) )
+
 
 def find_squares(img):
     yuv = cv.cvtColor(img,cv.COLOR_BGR2YUV)
@@ -108,11 +116,13 @@ def find_squares(img):
     squares = npi.unique(squares)
     return squares
 
+
 def rectArea(square):
     p0 = (square[0][0],square[0][1])
     p1 = (square[1][0],square[1][1])
     p2 = (square[2][0],square[2][1])
     return dist.euclidean(p0,p1) * dist.euclidean(p1,p2)
+
 
 def getCircledRoi(origfile,ofile):
     img = rimg(origfile)
@@ -176,6 +186,7 @@ def prehandle(img,oname):
     ret = getCircledRoi(tmpname, oname)
     return ret
 
+
 def getPoints(start,end):
     ret=list()
     if end[0] != start[0] :
@@ -196,6 +207,7 @@ def getPoints(start,end):
             x = start[0]
             ret.append((x,y))
     return ret
+
 
 def getPixsPerMetrics(img, metics):
     gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
@@ -258,6 +270,7 @@ def getCrossPoint(start,end,cnt):
     (x,y) = (int(x),int(y))
     return (x,y),cv.pointPolygonTest(cnt,(x,y),True)
 
+
 def getYCbCr(img,oname='xxx.png'):
     yCrCb = cv.cvtColor(img,cv.COLOR_BGR2YCrCb)
     yC,Cr,Cb = cv.split(yCrCb)
@@ -283,6 +296,7 @@ def getYCbCr(img,oname='xxx.png'):
         #opp=imfill(opp)
     oimg(oname,opp)
     return opp
+
 
 def drawWidthLength(cnt,orig):
     box = cv.minAreaRect(cnt)
@@ -344,6 +358,7 @@ def getWidthLength(img,orig):
     nztxv = [x for x in nztx if x[0] > (w/2 + limitSize) and x[0] < (w - limitSize) and x[1] >minY  and x[1] < h-limitSize]
     rl,rw=drawWidthLength(np.asarray(nztxv),orig)
     return ll,lw,rl,rw
+
 
 # return width length
 def getFootWidthLength(img,oname='foot-width-length.png'):
@@ -429,6 +444,7 @@ def getFootArchIndex(img,odir='.',oname='archindex.png'):
     return archIndex
 
 
+# for sensor press mat
 def Sprehandle(hmimg,datafile,oname = 'org.png'):
     img = SConvPressImg(datafile)
     if img is None:
@@ -542,8 +558,6 @@ def getBalanceCenter(img):
     SumW = np.array(np.sum(img, axis=0))
     SumH = np.array(np.sum(img, axis=1))
     Hpress = WPress = 0
-    # print(SumH.shape)
-    # print(SumW.shape)
 
     for i in range(0,w):
         WPress = WPress + i*SumW[i]
@@ -696,7 +710,7 @@ def getLinesArch(hmimg,img,whichone,angle,ref,oname):
     # print Hs,He,Ws,We,Hdeep,Wc
 
     # get Ref line is out Ref line or the heal gravity center
-    if len(ref) == 4 and ref[0] != 0:
+    if len(ref) == 4 and ref[0] != 0 and ref[1] != 0:
         Refpoint = getPointAffinedPos((ref[3],ref[2]), center, -angle)
         Refl = Dx = Refpoint[0]
         Dy = Refpoint[1]
@@ -870,7 +884,6 @@ def PressLine(hmimg,img,angle,oname):
 
 
 def SConvPressImg(filename):
-    # print 'SConvPressImg:', filename
     if filename.find('.txt') >= 0:
         fo = open(filename, 'r')
         Sdata = fo.read()
@@ -901,6 +914,7 @@ def SConvPressImg(filename):
     if len(B)!=2288:
         print "the press data length is valid:", len(B)
         return -1
+
     D = np.zeros((44,52), np.uint8)
     for j in range(51,-1,-1):
         for i in range(44):
@@ -926,9 +940,9 @@ def drawBalanceImg(hmimg, BCdata, oname):
     ## draw center of x axis and y axis
     h,w = hmimg.shape[0:2]
     center = np.array([int(w/2), int(h/2)])
-    deep = 20
-    cv.line(orig, (int(center[0]-deep), int(center[1])), (int(center[0]+deep), int(center[1])), (0,0,255), 1, cv.LINE_AA)
-    cv.line(orig, (int(center[0]), int(center[1]-deep)), (int(center[0]), int(center[1]+deep)), (0,0,255), 1, cv.LINE_AA)
+    deep = 40
+    cv.line(orig, (int(center[0]-deep), int(center[1])), (int(center[0]+deep), int(center[1])), (255,0,255), 1, cv.LINE_AA)
+    cv.line(orig, (int(center[0]), int(center[1]-deep)), (int(center[0]), int(center[1]+deep)), (255,0,255), 1, cv.LINE_AA)
 
     if BCdata.find('.txt') >= 0:
         fo = open(BCdata, 'r')
@@ -951,10 +965,10 @@ def drawBalanceImg(hmimg, BCdata, oname):
 
         if len(points) > 0:
             for i in range(len(points)):
-                cv.circle(orig, (int(points[i][0]), int(points[i][1])), 4, (100, 100, 100), -1)
+                cv.circle(orig, (int(points[i][0]), int(points[i][1])), 1, (255, 0, 0), 0)
                 if i > 0:
                     cv.line(orig, (int(points[i-1][0]), int(points[i-1][1])), (int(points[i][0]), int(points[i][1])),
-                            (100, 100, 100), 1, cv.LINE_AA)
+                            (50, 50, 50), 1, cv.LINE_AA)
 
     oimg(name+'_balance.png', orig)
     return 0
@@ -992,11 +1006,14 @@ def Qpress(img):
             for j in range(Wcen):
                 Q3 = Q3+img[i][j]
 
-        # print (Q1,Q2,Q3), Tnum
-        Q[0] = "%.2f" % (float(Q1) / Tnum)
-        Q[1] = "%.2f" % (float(Q2) / Tnum)
-        Q[2] = "%.2f" % (float(Q3) / Tnum)
-        Q[3] = "%.2f" % (1-Q[0]-Q[1]-Q[2])
+        Q[0] = float(Q1) / Tnum
+        Q[1] = float(Q2) / Tnum
+        Q[2] = float(Q3) / Tnum
+        Q[3] = 1-Q[0]-Q[1]-Q[2]
+
+    for i in range(len(Q)):
+        Q[i] = "%.2f" % Q[i]
+
     return Q
 
 
@@ -1066,6 +1083,9 @@ def fitline(data):
 
 def getRefPoints(filename):
     lref = rref = np.array([])
+    if filename is None:
+        return lref, rref
+
     if filename.find('.txt') >= 0:
         fo = open(filename, 'r')
         Sdata = fo.read()
@@ -1087,7 +1107,8 @@ def getRefPoints(filename):
 
     return lref,rref
 
-def setRefPoints(filename):
+def setRefPoints(filename, oname):
+    print 'setRefPoints', oname
     img = SConvPressImg(filename)
 
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -1100,23 +1121,56 @@ def setRefPoints(filename):
 
     Ref = ["%.4f"%lvh, "%.4f"%lvw, "%.4f"%lh, "%.4f"%lw, "%.4f"%rvh, "%.4f"%rvw, "%.4f"%rh, "%.4f"%rw]
 
-
-    if lvh!=0:
+    # draow ref lines to std img
+    stdimg = cv.imread('std.png')
+    if lvh!=0 and lvw!=0:
         lk = lvw/lvh
-        center = np.array((int(w / 2), int(h / 2)))
-        angle = math.atan(lk)
-        Refpoint = getPointAffinedPos((lw, lh), center, -angle)
-        Refpoint2 = getPointAffinedPos((int((280-lh)*lk+lw), 280), center, -angle)
-        print Refpoint, Refpoint2
-        cv.line(img, (int(lw-lk*lh), 0), (int((340-lh)*lk+lw),340), (0,255,0),1)
-        cv.circle(img, (int(lw), int(lh)), 3, (255,0,0), -1)
-        cv.circle(img, (int(Refpoint[0]), int(Refpoint[1])), 3, (255, 0, 255), -1)
-        cv.circle(img, (int(Refpoint2[0]), int(Refpoint2[1])), 3, (255, 0, 255), -1)
-        cv.circle(img, (int(center[0]), int(center[1])), 3, (0, 255, 255), -1)
-    if rvh!=0:
-        rk = rvw/rvh
-        cv.line(img, (int(rw-rk*rh),0), (int((340-rh)*rk+rw),340), (0,255,0),1)
+        cv.line(stdimg, (int(lw - lk * lh), 0), (int((340 - lh) * lk + lw), 340), (255, 0, 255), 1)
 
-    oimg('line1.png', img)
+    if rvh!=0 and rvw!=0:
+        rk = rvw/rvh
+        cv.line(stdimg, (int(rw-rk*rh),0), (int((340-rh)*rk+rw),340), (255,0,255),1)
+
+    oimg(oname, stdimg)
+
+    # draw line on img
+    # if lvh!=0:
+    #     lk = lvw/lvh
+    #     center = np.array((int(w / 2), int(h / 2)))
+    #     angle = math.atan(lk)
+    #     Refpoint = getPointAffinedPos((lw, lh), center, -angle)
+    #     Refpoint2 = getPointAffinedPos((int((280-lh)*lk+lw), 280), center, -angle)
+    #     print Refpoint, Refpoint2
+    #     cv.line(img, (int(lw-lk*lh), 0), (int((340-lh)*lk+lw),340), (0,255,0),1)
+    #     cv.circle(img, (int(lw), int(lh)), 3, (255,0,0), -1)
+    #     cv.circle(img, (int(Refpoint[0]), int(Refpoint[1])), 3, (255, 0, 255), -1)
+    #     cv.circle(img, (int(Refpoint2[0]), int(Refpoint2[1])), 3, (255, 0, 255), -1)
+    #     cv.circle(img, (int(center[0]), int(center[1])), 3, (0, 255, 255), -1)
+    # if rvh!=0:
+    #     rk = rvw/rvh
+    #     cv.line(img, (int(rw-rk*rh),0), (int((340-rh)*rk+rw),340), (0,255,0),1)
+    #
+    # oimg('line1.png', img)
+
     return Ref
 
+
+def drawrefimg(oname = 'std.png'):
+    refstd = cv.imread('ref.png')
+    h,w = refstd.shape[0:2]
+    center = np.array((int(w / 2), int(h / 2)))
+
+    # degree is 10, and distance is 8cm
+    k = math.tan(float(10)/180*math.pi)
+    bpitch = float(8)/36.4*416/2
+    tpitch = bpitch + h*k
+
+    deep = 20
+
+    cv.line(refstd, (center[0],int(center[1]-deep)), (center[0],int(center[1]+deep)), (150, 150, 150), 1)
+    cv.line(refstd, (int(center[0]-deep),center[1]), (int(center[0]+deep),center[1]), (150, 150, 150), 1)
+    cv.line(refstd, (int(center[0]-tpitch),0), (int(center[0]-bpitch),h-1), (150, 150, 150), 4)
+    cv.line(refstd, (int(center[0]+tpitch),0), (int(center[0]+bpitch),h-1), (150, 150, 150), 4)
+    oimg(oname, refstd)
+
+    return 0
