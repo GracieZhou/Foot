@@ -897,7 +897,7 @@ def SConvPressImg(filename):
 
     ## remove space and []
     if len(Sdata)>0:
-        Sdata = Sdata.strip('')
+        Sdata = Sdata.strip(' ')
         Sdata = Sdata.strip('[')
         Sdata = Sdata.strip(']')
 
@@ -953,7 +953,7 @@ def drawBalanceImg(hmimg, BCdata, oname):
 
     print 'Balance position:', Sdata
     if len(Sdata)>0:
-        Sdata = Sdata.strip('')
+        Sdata = Sdata.strip(' ')
         Sdata = Sdata.strip('[')
         Sdata = Sdata.strip(']')
 
@@ -1095,11 +1095,12 @@ def getRefPoints(filename):
 
     print 'Ref Points:', Sdata
     if len(Sdata)>0:
-        Sdata = Sdata.strip('')
+        Sdata = Sdata.strip(' ')
         Sdata = Sdata.strip('[')
         Sdata = Sdata.strip(']')
+        Sdata = Sdata.strip('"')
 
-        Temp = Sdata.split(',')
+        Temp = Sdata.split('","')
         B = [float(x) for x in Temp]
         if len(B) == 8:
             lref = np.array([B[0],B[1],B[2],B[3]])

@@ -43,7 +43,7 @@ for f in files :
 
     data = '20,23; 18,20; 20,20; 24,30; 21,26; 25,30'
     # ref = '1,0.78,200,100,0,0,0,0'
-    ref = ''
+    ref = 'refp.txt'
     LArch, RArch, LQ, RQ = fd.getfootReportInfo(os.path.join(indir,hmname), os.path.join(indir, f), data, ref, oname = name+"_org.png")
     print LArch,RArch
     print (LQ), (RQ)

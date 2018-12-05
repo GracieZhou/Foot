@@ -125,7 +125,7 @@ def fetchRef():
     baseDir = "D:/WORKSPACE/python/foot/html"
     baseDomain = "http://localhost:5000/html"
 
-    fileDir = "{}/{}/{}".format(baseDir, 'HW',Mac)
+    fileDir = "{}/{}/{}".format(baseDir, 'HW', Mac)
 
     code = 1
     msg = ""
